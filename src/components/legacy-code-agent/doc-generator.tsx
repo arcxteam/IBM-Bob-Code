@@ -215,7 +215,7 @@ export function DocGenerator() {
         <div className="grid lg:grid-cols-2 gap-6">
           {/* Input */}
           <div className="space-y-4">
-            <Card className="border-border/50">
+            <Card className="glass-surface border-emerald-500/20">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-semibold">Source Code</CardTitle>
@@ -235,7 +235,7 @@ export function DocGenerator() {
             </Card>
 
             {/* Type Selection */}
-            <Card className="border-border/50">
+            <Card className="glass-surface border-teal-500/20">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-semibold">Generation Type</CardTitle>
               </CardHeader>
@@ -284,7 +284,7 @@ export function DocGenerator() {
 
           {/* Output */}
           <div>
-            <Card className="border-border/50 sticky top-8">
+            <Card className="glass-surface border-emerald-500/20 sticky top-8">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-semibold flex items-center gap-2">

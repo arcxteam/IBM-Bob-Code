@@ -205,10 +205,9 @@ export function FlowTracer() {
                   message.role === 'user' ? 'order-first' : ''
                 )}>
                   <Card className={cn(
-                    'border-border/50',
                     message.role === 'user'
                       ? 'bg-primary text-primary-foreground border-primary/20'
-                      : 'bg-card/50 backdrop-blur-sm'
+                      : 'glass-surface border-cyan-500/20'
                   )}>
                     <CardContent className="p-4">
                       <div className="text-sm leading-relaxed whitespace-pre-wrap prose prose-sm dark:prose-invert max-w-none">
@@ -265,10 +264,10 @@ export function FlowTracer() {
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center flex-shrink-0">
                 <Bot className="w-4 h-4 text-white" />
               </div>
-              <Card className="border-border/50 bg-card/50">
+              <Card className="glass-surface border-cyan-500/20">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin text-emerald-600 dark:text-emerald-400" />
+                    <Loader2 className="w-4 h-4 animate-spin text-cyan-600 dark:text-cyan-400" />
                     <span className="text-sm text-muted-foreground">Bob is analyzing your codebase...</span>
                   </div>
                 </CardContent>

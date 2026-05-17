@@ -99,6 +99,11 @@ let _tokenExpiresAt: number = 0; // unix timestamp in ms
  * Retrieve a valid IBM IAM bearer token.
  * Fetches a new token from IBM IAM when the cached one has expired or is absent.
  * IBM IAM tokens are valid for 3600 seconds (60 minutes).
+ * 
+ * @returns {Promise<string>} A valid IBM IAM bearer token
+ * @throws {Error} If WATSONX_API_KEY is not configured
+ * @throws {Error} If the IBM IAM token request fails
+ * @private
  */
 async function getIAMToken(): Promise<string> {
   const now = Date.now();
@@ -152,10 +157,16 @@ async function getIAMToken(): Promise<string> {
 
 /**
  * Call IBM watsonx.ai with a structured messages array (chat completions format).
+ * 
+ * This is the primary function for interacting with IBM Granite foundation models.
+ * It handles IAM token management, request formatting, and response parsing.
  *
- * @param messages - Conversation messages (system, user, assistant turns)
- * @param options  - Optional model parameters (maxNewTokens, temperature, etc.)
- * @returns The model's generated text response as a plain string
+ * @param {WatsonxMessage[]} messages - Conversation messages (system, user, assistant turns)
+ * @param {WatsonxOptions} [options={}] - Optional model parameters (maxNewTokens, temperature, etc.)
+ * @returns {Promise<string>} The model's generated text response as a plain string
+ * @throws {Error} If WATSONX_API_KEY or WATSONX_PROJECT_ID are not configured
+ * @throws {Error} If the IBM watsonx.ai API call fails
+ * @throws {Error} If the model returns an empty response
  *
  * @example
  * ```ts
@@ -164,6 +175,8 @@ async function getIAMToken(): Promise<string> {
  *   { role: "user", content: sourceCode },
  * ], { temperature: 0.1, maxNewTokens: 2000 });
  * ```
+ * 
+ * @see {@link https://cloud.ibm.com/apidocs/watsonx-ai IBM watsonx.ai API Documentation}
  */
 export async function callWatsonx(
   messages: WatsonxMessage[],
@@ -232,7 +245,25 @@ export async function callWatsonx(
 
 /**
  * Build a simple two-message request (system + user) and call the model.
- * Suitable for single-turn analysis tasks (analyze, refactor, security, generate).
+ * 
+ * This is a convenience wrapper around callWatsonx for single-turn analysis tasks.
+ * Suitable for analyze, refactor, security, and generate operations.
+ * 
+ * @param {string} systemPrompt - The system message defining the AI's role and behavior
+ * @param {string} userContent - The user's input content (e.g., source code to analyze)
+ * @param {WatsonxOptions} [options] - Optional model parameters (maxNewTokens, temperature, etc.)
+ * @returns {Promise<string>} The model's generated text response as a plain string
+ * @throws {Error} If WATSONX_API_KEY or WATSONX_PROJECT_ID are not configured
+ * @throws {Error} If the IBM watsonx.ai API call fails
+ * 
+ * @example
+ * ```ts
+ * const analysis = await analyzeWithWatsonx(
+ *   "You are a security analyst. Find vulnerabilities.",
+ *   sourceCode,
+ *   { temperature: 0.05, maxNewTokens: 2000 }
+ * );
+ * ```
  */
 export async function analyzeWithWatsonx(
   systemPrompt: string,
@@ -250,8 +281,22 @@ export async function analyzeWithWatsonx(
 
 /**
  * Safely parse JSON from a model response.
- * IBM Granite sometimes wraps JSON in markdown fences — this strips them.
- * Returns `null` if parsing fails after cleanup.
+ * 
+ * IBM Granite sometimes wraps JSON in markdown code fences (```json ... ```).
+ * This function strips those fences and attempts to parse the JSON.
+ * 
+ * @template T - The expected type of the parsed JSON object
+ * @param {string} raw - The raw string response from the model
+ * @returns {T | null} The parsed JSON object, or null if parsing fails
+ * 
+ * @example
+ * ```ts
+ * interface AnalysisResult { complexity: number; files: string[] }
+ * const result = safeParseJSON<AnalysisResult>(modelResponse);
+ * if (result) {
+ *   console.log(`Complexity: ${result.complexity}`);
+ * }
+ * ```
  */
 export function safeParseJSON<T>(raw: string): T | null {
   try {
@@ -272,7 +317,21 @@ export function safeParseJSON<T>(raw: string): T | null {
 
 /**
  * Extract JSON from a longer string that may contain prose before/after the JSON block.
- * Useful when the model adds explanation before/after the JSON object or array.
+ * 
+ * This function is more aggressive than safeParseJSON — it searches for the first
+ * JSON object {...} or array [...] in the response and attempts to parse it.
+ * Useful when the model adds explanatory text before or after the JSON payload.
+ * 
+ * @template T - The expected type of the parsed JSON object
+ * @param {string} raw - The raw string response that may contain JSON embedded in prose
+ * @returns {T | null} The extracted and parsed JSON object, or null if no valid JSON is found
+ * 
+ * @example
+ * ```ts
+ * const response = "Here's the analysis:\n```json\n{\"score\": 85}\n```\nHope this helps!";
+ * const data = extractJSON<{ score: number }>(response);
+ * // data = { score: 85 }
+ * ```
  */
 export function extractJSON<T>(raw: string): T | null {
   // Try direct parse first
@@ -300,6 +359,27 @@ export function extractJSON<T>(raw: string): T | null {
 // Model configuration per route (exported for documentation/testing)
 // ---------------------------------------------------------------------------
 
+/**
+ * Recommended model configuration for each AROMA API route.
+ * 
+ * Each route has optimized temperature and token limits based on its use case:
+ * - Lower temperature (0.05-0.1) for deterministic, structured output (JSON)
+ * - Higher temperature (0.3-0.4) for creative prose (docs, explanations)
+ * 
+ * @constant
+ * @type {Record<string, { temperature: number; maxNewTokens: number; description: string }>}
+ * 
+ * @example
+ * ```ts
+ * import { WATSONX_ROUTE_CONFIG } from '@/lib/watsonx';
+ * 
+ * const config = WATSONX_ROUTE_CONFIG.security;
+ * const result = await callWatsonx(messages, {
+ *   temperature: config.temperature,
+ *   maxNewTokens: config.maxNewTokens
+ * });
+ * ```
+ */
 export const WATSONX_ROUTE_CONFIG = {
   analyze: {
     temperature: 0.1,

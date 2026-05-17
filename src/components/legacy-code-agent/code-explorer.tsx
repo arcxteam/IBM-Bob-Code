@@ -216,6 +216,7 @@ export function CodeExplorer() {
   } = useAppStore()
 
   const [copied, setCopied] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text)
@@ -223,9 +224,33 @@ export function CodeExplorer() {
     setTimeout(() => setCopied(null), 2000)
   }
 
+  const handleCopyResults = () => {
+    if (!analysisResult) return
+    
+    const resultsText = `# Code Analysis Results
+
+## Files Detected
+${analysisResult.files.map(f => `- ${f.name} (${f.language}, ${f.lines} lines, complexity: ${f.complexity})`).join('\n')}
+
+## Architecture
+${analysisResult.architecture}
+
+## Complexity Score
+${analysisResult.complexity}/100
+
+## Dependencies
+${analysisResult.dependencies.join(', ')}
+
+## Bob's Suggestions
+${analysisResult.suggestions.map((s, i) => `${i + 1}. ${s}`).join('\n')}
+`
+    handleCopy(resultsText, 'results')
+  }
+
   const handleAnalyze = useCallback(async () => {
     if (!codeInput.trim()) return
     setIsAnalyzing(true)
+    setError(null)
 
     try {
       const res = await fetch('/api/analyze', {
@@ -234,10 +259,22 @@ export function CodeExplorer() {
         body: JSON.stringify({ code: codeInput }),
       })
       const data: AnalysisResult = await res.json()
-      if (!res.ok || !data.files) throw new Error('API Error')
+      
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to analyze code')
+      }
+      
+      if (!data.files) {
+        throw new Error('Invalid response from API')
+      }
+      
       setAnalysisResult(data)
       setProjectAnalyzed(true)
-    } catch {
+      setError(null)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred'
+      setError(errorMessage)
+      
       // Dynamic Fallback due to API error
       const lines = codeInput.split('\\n').length;
       const isPython = codeInput.includes('def ') || codeInput.includes('import ') || codeInput.includes('MetaTrader5');
@@ -252,14 +289,15 @@ export function CodeExplorer() {
         architecture: 'Single script/module',
         complexity: Math.min(50, Math.ceil(lines / 5)),
         suggestions: [
-          '⚠️ IBM Bob AI API Rate Limit Exceeded: Deep contextual analysis is temporarily unavailable.',
+          '⚠️ Analysis Error: ' + errorMessage,
           'This is a local surface-level fallback analysis based on simple heuristics.',
-          'Please try your request again in a few moments.',
+          'Please check your connection and try again.',
         ],
       })
       setProjectAnalyzed(true)
+    } finally {
+      setIsAnalyzing(false)
     }
-    setIsAnalyzing(false)
   }, [codeInput, setIsAnalyzing, setAnalysisResult, setProjectAnalyzed])
 
   const handleLoadSample = () => {
@@ -290,7 +328,7 @@ export function CodeExplorer() {
         <div className="grid lg:grid-cols-2 gap-6">
           {/* Input Panel */}
           <div className="space-y-4">
-            <Card className="border-border/50">
+            <Card className="glass-surface border-emerald-500/20">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -333,14 +371,88 @@ export function CodeExplorer() {
           {/* Results Panel */}
           <div className="space-y-4">
             <AnimatePresence mode="wait">
-              {!analysisResult ? (
+              {isAnalyzing ? (
+                <motion.div
+                  key="loading"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="space-y-4"
+                >
+                  {/* Loading Skeleton */}
+                  <Card className="glass-surface border-emerald-500/20">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+                        <CardTitle className="text-sm font-semibold">Analyzing Code...</CardTitle>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="space-y-2">
+                        {[1, 2, 3].map((i) => (
+                          <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/50 animate-pulse">
+                            <div className="w-4 h-4 rounded bg-muted-foreground/20" />
+                            <div className="flex-1 space-y-2">
+                              <div className="h-3 bg-muted-foreground/20 rounded w-3/4" />
+                              <div className="h-2 bg-muted-foreground/10 rounded w-1/2" />
+                            </div>
+                            <div className="flex gap-2">
+                              <div className="h-5 w-12 bg-muted-foreground/20 rounded" />
+                              <div className="h-5 w-12 bg-muted-foreground/20 rounded" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card className="glass-surface border-emerald-500/20">
+                    <CardHeader className="pb-3">
+                      <div className="h-4 bg-muted-foreground/20 rounded w-32 animate-pulse" />
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="h-3 bg-muted-foreground/20 rounded w-full animate-pulse" />
+                      <div className="h-3 bg-muted-foreground/20 rounded w-5/6 animate-pulse" />
+                      <div className="h-2 bg-muted-foreground/10 rounded w-full animate-pulse mt-4" />
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ) : error && !analysisResult ? (
+                <motion.div
+                  key="error"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <Card className="glass-surface border-destructive/50 bg-destructive/5">
+                    <CardContent className="p-6">
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center flex-shrink-0">
+                          <XCircle className="w-5 h-5 text-destructive" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-semibold mb-1 text-destructive">Analysis Failed</h3>
+                          <p className="text-sm text-muted-foreground mb-3">{error}</p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleAnalyze}
+                            className="text-xs"
+                          >
+                            Try Again
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ) : !analysisResult ? (
                 <motion.div
                   key="empty"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                 >
-                  <Card className="border-dashed border-border/50 h-[500px] flex items-center justify-center">
+                  <Card className="glass-surface border-dashed border-emerald-500/20 h-[500px] flex items-center justify-center">
                     <CardContent className="text-center p-8">
                       <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
                         <FolderTree className="w-8 h-8 text-muted-foreground/50" />
@@ -361,12 +473,26 @@ export function CodeExplorer() {
                   className="space-y-4"
                 >
                   {/* File Tree */}
-                  <Card className="border-border/50">
+                  <Card className="glass-surface border-emerald-500/20">
                     <CardHeader className="pb-3">
-                      <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                        <FolderTree className="w-4 h-4" />
-                        Detected Files
-                      </CardTitle>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                          <FolderTree className="w-4 h-4" />
+                          Detected Files
+                        </CardTitle>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleCopyResults}
+                          className="text-xs h-7"
+                        >
+                          {copied === 'results' ? (
+                            <><CheckCircle2 className="w-3 h-3 mr-1" />Copied!</>
+                          ) : (
+                            <><FileCode2 className="w-3 h-3 mr-1" />Copy Results</>
+                          )}
+                        </Button>
+                      </div>
                     </CardHeader>
                     <CardContent className="space-y-2">
                       {analysisResult.files.map((file, i) => (
@@ -405,7 +531,7 @@ export function CodeExplorer() {
                   </Card>
 
                   {/* Architecture Overview */}
-                  <Card className="border-border/50">
+                  <Card className="glass-surface border-emerald-500/20">
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm font-semibold flex items-center gap-2">
                         <Layers className="w-4 h-4" />
@@ -438,7 +564,7 @@ export function CodeExplorer() {
                   </Card>
 
                   {/* Bob Suggestions */}
-                  <Card className="border-emerald-500/20 bg-emerald-50/30 dark:bg-emerald-950/20">
+                  <Card className="glass-surface border-emerald-500/20 bg-emerald-50/30 dark:bg-emerald-950/20">
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm font-semibold flex items-center gap-2">
                         <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
@@ -478,7 +604,7 @@ export function CodeExplorer() {
                 exit={{ scale: 0.95, opacity: 0 }}
                 onClick={(e) => e.stopPropagation()}
               >
-                <Card className="max-w-lg w-full max-h-[80vh] overflow-hidden">
+                <Card className="glass-surface-lg max-w-lg w-full max-h-[80vh] overflow-hidden">
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-sm font-semibold flex items-center gap-2">

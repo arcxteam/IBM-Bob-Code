@@ -3,7 +3,7 @@
 ## **AI-powered Repository & Object Model Analyzer**
 
 > Built for the **IBM Bob Hackathon 2026** — *"Turn idea into impact faster"*
-> Developed using **IBM Bob IDE** | Powered by **IBM watsonx.ai (Granite 3-8b-instruct)**
+> Developed using **IBM Bob IDE** | Powered by **IBM watsonx.ai (Granite 4-h-small)**
 
 ---
 
@@ -68,6 +68,11 @@ graph TB
         IAM["IBM IAM Token Service<br/>(token refresh logic)"]
     end
 
+    subgraph BobProxy ["Bob Shell Proxy (Optional)"]
+        BP["Bob Proxy Server<br/>(bob-proxy/)"]
+        BShell["IBM Bob Shell CLI<br/>(--chat-mode advanced)"]
+    end
+
     subgraph Modules ["AROMA Modules"]
         M1["Code Explorer"]
         M2["Flow Tracer"]
@@ -80,13 +85,18 @@ graph TB
     subgraph IBM_Cloud ["IBM Cloud (External)"]
         IAMEP["IAM Endpoint<br/>iam.cloud.ibm.com"]
         WXAI["IBM watsonx.ai<br/>us-south.ml.cloud.ibm.com"]
-        Granite["IBM Granite 3-8b-instruct<br/>Foundation Model"]
+        Granite["IBM Granite 4-h-small<br/>Foundation Model"]
     end
 
     UI -->|User Input| Store
     UI -->|fetch POST| API
     Store -->|State| UI
-    API -->|1. Request IAM token| IAM
+    API -->|1. Try Bob Proxy| BP
+    BP -->|Bob Shell inference| BShell
+    BShell -->|watsonx.ai| WXAI
+    BP -->|2. Fallback if Bob fails| WXClient
+    API -->|Direct fallback| WXClient
+    WXClient -->|1. Request IAM token| IAM
     IAM -->|POST /identity/token| IAMEP
     IAMEP -->|Bearer token| IAM
     IAM -->|2. Authorized call| WXClient
@@ -100,6 +110,7 @@ graph TB
 
     style Client fill:#10b981,stroke:#059669,color:#fff
     style Server fill:#0891b2,stroke:#0e7490,color:#fff
+    style BobProxy fill:#8b5cf6,stroke:#7c3aed,color:#fff
     style Modules fill:#8b5cf6,stroke:#7c3aed,color:#fff
     style IBM_Cloud fill:#054ADA,stroke:#0530AD,color:#fff
 ```
@@ -121,7 +132,8 @@ src/
 │       ├── chat/route.ts       # Flow tracer chat API (POST)
 │       ├── refactor/route.ts   # Refactoring suggestions API (POST)
 │       ├── generate/route.ts   # Doc/test generation API (POST)
-│       └── security/route.ts   # Security scanning API (POST)
+│       ├── security/route.ts   # Security scanning API (POST)
+│       └── health/route.ts     # System health & watsonx.ai check (GET)
 ├── components/
 │   ├── legacy-code-agent/
 │   │   ├── hero-section.tsx    # Landing page with terminal demo
@@ -212,7 +224,7 @@ sequenceDiagram
     WX->>IAM: POST /identity/token (apikey)
     IAM-->>WX: { access_token, expires_in: 3600 }
     WX->>WXAI: POST /ml/v1/text/chat?version=2023-05-29
-    Note over WXAI: model_id: ibm/granite-3-8b-instruct<br/>project_id: {env}<br/>System: code architecture analyst<br/>User: the pasted code
+    Note over WXAI: model_id: ibm/granite-4-h-small<br/>project_id: {env}<br/>System: code architecture analyst<br/>User: the pasted code
     WXAI-->>WX: { results: [{ generated_text }] }
     WX-->>API: parsed JSON string
     API->>API: JSON.parse response → fallback if parse fails
@@ -446,7 +458,7 @@ flowchart TD
     Validate -->|Valid| BuildPrompt["Build system prompt<br/>(task-specific analyst persona)"]
     BuildPrompt --> Messages["Construct messages array:<br/>system + context + user"]
     Messages --> GetToken["lib/watsonx.ts:<br/>Check cached IAM token<br/>(expires_in: 3600s)"]
-    GetToken -->|Token valid| Call["POST us-south.ml.cloud.ibm.com<br/>/ml/v1/text/chat?version=2023-05-29<br/>model: ibm/granite-3-8b-instruct"]
+    GetToken -->|Token valid|     Call["POST us-south.ml.cloud.ibm.com<br/>/ml/v1/text/chat?version=2023-05-29<br/>model: ibm/granite-4-h-small"]
     GetToken -->|Token expired| RefreshToken["POST iam.cloud.ibm.com/identity/token<br/>(grant_type=apikey)"]
     RefreshToken --> Call
     Call -->|Success| ParseJSON["Try parse JSON from<br/>generated_text field"]
@@ -717,7 +729,7 @@ graph TB
         APIR["Next.js API Routes"]
         WXLib["lib/watsonx.ts<br/>(IBM watsonx.ai client)"]
         Prisma["Prisma ORM"]
-        SQLite["SQLite"]
+        PG["Supabase PostgreSQL"]
     end
 
     subgraph IBM_Services ["IBM Cloud Services"]
@@ -749,7 +761,7 @@ graph TB
     WXLib --> WXAI
     WXAI --> Granite
     APIR --> Prisma
-    Prisma --> SQLite
+    Prisma --> PG
 
     Bob -.->|Built with| FW
     Bob -.->|Built with| APIR
@@ -816,7 +828,7 @@ erDiagram
     AnalysisSession ||--o{ GeneratedDocument : "generated"
 ```
 
-> **Current state:** The Prisma schema is scaffolded with these models for a future persistence feature that will allow users to save and retrieve past analysis sessions, scan reports, and generated documents. In the current hackathon proof-of-concept, all data is held in client-side Zustand state for the duration of the browser session. The database models shown above represent the planned schema for the next iteration.
+> **Current state:** The Prisma schema is scaffolded with these models for persistence features that allow users to save and retrieve past analysis sessions, scan reports, and generated documents. The database uses **Supabase PostgreSQL** for production and can fall back to SQLite for local development. In the current hackathon proof-of-concept, all data is held in client-side Zustand state for the duration of the browser session, but the database schema is ready for server-side persistence.
 
 ---
 
@@ -867,35 +879,67 @@ secrets/
 
 ## 12. Deployment Architecture
 
+### 12.1 Current Deployment (Hackathon — Temporary)
+
 ```mermaid
 graph TB
-    subgraph Dev ["Development"]
-        DevServer["Next.js Dev Server<br/>:3000"]
-        BobIDE["IBM Bob IDE<br/>(AI Development Partner)"]
+    subgraph Vercel ["Vercel (Temporary)"]
+        NextApp["Next.js App<br/>ibm-bob-code.vercel.app"]
     end
 
-    subgraph Production ["Production (Conceptual)"]
-        Caddy["Caddy Reverse Proxy<br/>:443 (HTTPS)"]
-        NextProd["Next.js Production<br/>(Standalone)"]
-        DB["SQLite Database<br/>./db/db.sqlite"]
+    subgraph SelfHosted ["Self-Hosted Server"]
+        BobProxy["Bob Proxy Server<br/>:3003"]
+        BobShell["IBM Bob Shell CLI"]
+        PM2["pm2 Process Manager"]
+    end
+
+    subgraph Supabase ["Supabase Cloud"]
+        DB["PostgreSQL Database"]
     end
 
     subgraph IBM_Cloud ["IBM Cloud"]
-        WXAI["IBM watsonx.ai<br/>Granite Inference"]
-        IAM["IBM IAM<br/>Token Service"]
+        WXAI["IBM watsonx.ai<br/>Granite 4-h-small"]
+        IAM["IBM IAM"]
     end
 
-    BobIDE -.->|Develops| DevServer
-    DevServer --> WXAI
-    DevServer --> IAM
+    NextApp -->|BOB_PROXY_URL| BobProxy
+    BobProxy --> BobShell
+    BobShell --> WXAI
+    NextApp -->|Fallback: direct| WXAI
+    NextApp --> DB
+    PM2 --> BobProxy
+
+    style Vercel fill:#10b981,stroke:#059669,color:#fff
+    style SelfHosted fill:#0891b2,stroke:#0e7490,color:#fff
+    style Supabase fill:#3ecf8e,stroke:#2ea86e,color:#fff
+    style IBM_Cloud fill:#054ADA,stroke:#0530AD,color:#fff
+```
+
+> **Note:** The current Vercel deployment is temporary for the hackathon. After the event, the entire application will run self-hosted on a single server with a custom domain.
+
+### 12.2 Future Deployment (Self-Hosted — Production)
+
+```mermaid
+graph TB
+    subgraph Server ["Self-Hosted Server (Single Machine)"]
+        Caddy["Caddy Reverse Proxy<br/>:443 (HTTPS)"]
+        NextProd["Next.js Production<br/>(Standalone)"]
+        BobProxy["Bob Proxy Server<br/>:3003"]
+        DB["PostgreSQL Database"]
+    end
+
+    subgraph IBM_Cloud ["IBM Cloud"]
+        WXAI["IBM watsonx.ai<br/>Granite 4-h-small"]
+        IAM["IBM IAM"]
+    end
 
     Caddy --> NextProd
+    NextProd --> BobProxy
+    BobProxy --> WXAI
+    NextProd -->|Fallback| WXAI
     NextProd --> DB
-    NextProd --> WXAI
-    NextProd --> IAM
 
-    style Dev fill:#10b981,stroke:#059669,color:#fff
-    style Production fill:#0891b2,stroke:#0e7490,color:#fff
+    style Server fill:#0891b2,stroke:#0e7490,color:#fff
     style IBM_Cloud fill:#054ADA,stroke:#0530AD,color:#fff
 ```
 
@@ -980,7 +1024,7 @@ graph TB
 
     subgraph IBM_WXAI ["IBM watsonx.ai"]
         ChatEP["us-south.ml.cloud.ibm.com<br/>/ml/v1/text/chat"]
-        Granite["ibm/granite-3-8b-instruct"]
+        Granite["ibm/granite-4-h-small"]
     end
 
     Cache -->|Token valid| CallWX
@@ -1003,7 +1047,8 @@ graph TB
 | `WATSONX_API_KEY` | IBM Cloud API key (from Developer Access panel) | ✅ Yes |
 | `WATSONX_PROJECT_ID` | watsonx.ai project ID (watsonx Hackathon Sandbox) | ✅ Yes |
 | `WATSONX_ENDPOINT` | Regional endpoint URL (`https://us-south.ml.cloud.ibm.com`) | ✅ Yes |
-| `WATSONX_MODEL_ID` | Foundation model ID (`ibm/granite-3-8b-instruct`) | ✅ Yes |
+| `WATSONX_MODEL_ID` | Foundation model ID (`ibm/granite-4-h-small`) | ✅ Yes |
+| `BOB_PROXY_URL` | Bob Shell proxy URL (optional, e.g. `http://localhost:3003`) | ❌ Optional |
 
 ### 14.3 Model Configuration Per Route
 
@@ -1098,4 +1143,4 @@ Per hackathon guidelines, the following models are **out of scope** and are not 
 ---
 
 *AROMA — IBM Bob Hackathon 2026*  
-*Built with IBM Bob IDE | Powered by IBM watsonx.ai Granite 3-8b-instruct*
+*Built with IBM Bob IDE | Powered by IBM watsonx.ai Granite 4-h-small*

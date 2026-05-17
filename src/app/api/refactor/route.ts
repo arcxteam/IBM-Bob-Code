@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { analyzeWithWatsonx, extractJSON } from '@/lib/watsonx'
+import { callBobProxy } from '@/lib/bob-proxy'
 
 interface RefactorSuggestion {
   id: string;
@@ -49,10 +50,22 @@ Patterns to detect (in order of severity):
 
 Provide between 3 and 10 suggestions based on what you find.`
 
-    const raw = await analyzeWithWatsonx(systemPrompt, code, {
-      temperature: 0.1,
-      maxNewTokens: 2000,
-    })
+    // Try Bob Shell proxy first, then fallback to direct watsonx.ai
+    let raw: string
+
+    const bobResult = await callBobProxy(
+      `${systemPrompt}\n\n${code}`,
+      { chatMode: "advanced", maxCoins: 3 }
+    )
+
+    if (bobResult.success && bobResult.output) {
+      raw = bobResult.output
+    } else {
+      raw = await analyzeWithWatsonx(systemPrompt, code, {
+        temperature: 0.1,
+        maxNewTokens: 2000,
+      })
+    }
 
     const parsed = extractJSON<RefactorSuggestion[]>(raw)
 

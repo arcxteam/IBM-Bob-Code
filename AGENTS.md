@@ -32,7 +32,8 @@ src/
 │       ├── chat/route.ts       # POST → Interactive flow tracer chat
 │       ├── refactor/route.ts   # POST → Pattern detection & refactoring
 │       ├── generate/route.ts   # POST → Documentation & test generation
-│       └── security/route.ts   # POST → Security vulnerability scanning
+│       ├── security/route.ts   # POST → Security vulnerability scanning
+│       └── health/route.ts     # GET → System health & watsonx.ai connectivity check
 ├── components/
 │   ├── legacy-code-agent/      # The six AROMA modules (one component each)
 │   └── ui/                     # shadcn/ui component library
@@ -59,6 +60,37 @@ src/
 | Doc & Test Gen | `doc-generator.tsx` | `/api/generate` | README, API docs, tests, inline comments |
 | Health Dashboard | `dashboard.tsx` | (state-driven) | Recharts quality metrics, AI summary |
 | Security Scanner | `security-scanner.tsx` | `/api/security` | OWASP Top 10, CWE references, score |
+
+---
+
+## API Routes
+
+AROMA exposes six server-side API routes that handle AI inference and system monitoring:
+
+| Route | Method | Purpose | Response |
+|-------|--------|---------|----------|
+| `/api/analyze` | POST | Code architecture analysis | JSON with file tree, complexity metrics, dependencies |
+| `/api/chat` | POST | Interactive flow tracer chat | JSON with AI response message |
+| `/api/refactor` | POST | Pattern detection & refactoring suggestions | JSON array of refactoring recommendations |
+| `/api/generate` | POST | Documentation & test generation | JSON with generated docs, tests, comments |
+| `/api/security` | POST | Security vulnerability scanning | JSON array of security findings with OWASP/CWE refs |
+| `/api/health` | GET | System health & watsonx.ai connectivity | JSON with status, model info, timestamp |
+
+**Health Check Response Schema:**
+```typescript
+{
+  status: 'ok' | 'error',
+  watsonx: 'connected' | 'disconnected',
+  model: string,              // e.g., 'ibm/granite-4-h-small'
+  timestamp: string,          // ISO 8601 format
+  error?: string              // Only present when status is 'error'
+}
+```
+
+The health endpoint is used for:
+- Deployment validation (verify watsonx.ai credentials are correct)
+- Monitoring and alerting (check if AI backend is reachable)
+- Debugging (confirm IAM token acquisition and model availability)
 
 ---
 

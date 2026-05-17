@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { analyzeWithWatsonx, extractJSON, type WatsonxMessage } from '@/lib/watsonx'
+import { callBobProxy } from '@/lib/bob-proxy'
 
 export async function POST(req: NextRequest) {
   try {
@@ -27,10 +28,21 @@ Rules:
 - complexity: overall complexity score 1-10
 - suggestions: exactly 5 actionable improvement recommendations`
 
-    const raw = await analyzeWithWatsonx(systemPrompt, code, {
-      temperature: 0.1,
-      maxNewTokens: 2000,
-    })
+    let raw: string
+
+    const bobResult = await callBobProxy(
+      `${systemPrompt}\n\n${code}`,
+      { chatMode: "advanced", maxCoins: 3 }
+    )
+
+    if (bobResult.success && bobResult.output) {
+      raw = bobResult.output
+    } else {
+      raw = await analyzeWithWatsonx(systemPrompt, code, {
+        temperature: 0.1,
+        maxNewTokens: 2000,
+      })
+    }
 
     const parsed = extractJSON<{
       files: Array<{ name: string; language: string; lines: number; complexity: number; functions: string[] }>;

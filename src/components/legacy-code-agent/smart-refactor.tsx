@@ -26,6 +26,7 @@ import {
   Code2,
   AlertOctagon,
   Layers,
+  CheckCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { CanvasBackground } from '@/components/legacy-code-agent/canvas-background'
@@ -96,6 +97,20 @@ function calculateDiscount(price) {
   }
 }`
 
+/**
+ * Helper function to add line numbers to code blocks
+ */
+function addLineNumbers(code: string): string {
+  const lines = code.split('\n')
+  const maxLineNumWidth = String(lines.length).length
+  return lines
+    .map((line, index) => {
+      const lineNum = String(index + 1).padStart(maxLineNumWidth, ' ')
+      return `${lineNum} | ${line}`
+    })
+    .join('\n')
+}
+
 function getSeverityColor(severity: string) {
   switch (severity) {
     case 'critical': return 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20'
@@ -133,6 +148,8 @@ export function SmartRefactor() {
 
   const [expandedSuggestion, setExpandedSuggestion] = useState<string | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
+  const [appliedSuggestions, setAppliedSuggestions] = useState<Set<string>>(new Set())
+  const [isApplyingAll, setIsApplyingAll] = useState(false)
 
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text)
@@ -143,6 +160,8 @@ export function SmartRefactor() {
   const handleRefactor = useCallback(async () => {
     if (!codeInput.trim()) return
     setIsRefactoring(true)
+    // Reset applied suggestions when running new analysis
+    setAppliedSuggestions(new Set())
 
     try {
       const res = await fetch('/api/refactor', {
@@ -176,8 +195,40 @@ export function SmartRefactor() {
     setIsRefactoring(false)
   }, [codeInput, setIsRefactoring, setRefactoringSuggestions, setProjectAnalyzed])
 
+  const handleApplySuggestion = (suggestionId: string) => {
+    setAppliedSuggestions(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(suggestionId)) {
+        newSet.delete(suggestionId)
+      } else {
+        newSet.add(suggestionId)
+      }
+      return newSet
+    })
+  }
+
+  const handleRefactorAll = async () => {
+    // Filter safe suggestions (low and medium severity)
+    const safeSuggestions = suggestionsList.filter(
+      s => s.severity === 'low' || s.severity === 'medium'
+    )
+
+    if (safeSuggestions.length === 0) return
+
+    setIsApplyingAll(true)
+
+    // Simulate applying all suggestions with a delay for visual feedback
+    for (const suggestion of safeSuggestions) {
+      await new Promise(resolve => setTimeout(resolve, 200))
+      setAppliedSuggestions(prev => new Set([...prev, suggestion.id]))
+    }
+
+    setIsApplyingAll(false)
+  }
+
   const handleLoadSample = () => {
     setCodeInput(sampleCode)
+    setAppliedSuggestions(new Set())
   }
 
   const suggestionsList = Array.isArray(refactoringSuggestions) ? refactoringSuggestions : []
@@ -190,6 +241,13 @@ export function SmartRefactor() {
 
   const totalSuggestions = suggestionsList.length
   const score = totalSuggestions > 0 ? Math.max(0, 100 - (severityCounts.critical * 15 + severityCounts.high * 10 + severityCounts.medium * 5 + severityCounts.low * 2)) : 0
+
+  // Count safe suggestions that can be auto-applied
+  const safeSuggestionsCount = suggestionsList.filter(
+    s => s.severity === 'low' || s.severity === 'medium'
+  ).length
+
+  const appliedCount = appliedSuggestions.size
 
   return (
     <div className="relative min-h-screen overflow-y-auto">
@@ -215,7 +273,7 @@ export function SmartRefactor() {
         <div className="grid lg:grid-cols-5 gap-6">
           {/* Input */}
           <div className="lg:col-span-2">
-            <Card className="border-border/50 sticky top-8">
+            <Card className="glass-surface border-amber-500/20 sticky top-8">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-semibold">Code to Refactor</CardTitle>
               </CardHeader>
@@ -256,7 +314,7 @@ export function SmartRefactor() {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                 >
-                  <Card className="border-dashed border-border/50 h-[500px] flex items-center justify-center">
+                  <Card className="glass-surface border-dashed border-amber-500/20 h-[500px] flex items-center justify-center">
                     <CardContent className="text-center p-8">
                       <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
                         <Wrench className="w-8 h-8 text-muted-foreground/50" />
@@ -277,7 +335,7 @@ export function SmartRefactor() {
                   className="space-y-4"
                 >
                   {/* Summary */}
-                  <Card className="border-border/50">
+                  <Card className="glass-surface border-amber-500/20">
                     <CardContent className="p-4">
                       <div className="grid grid-cols-4 gap-4">
                         <div className="text-center">
@@ -298,13 +356,40 @@ export function SmartRefactor() {
                         </div>
                       </div>
                       <Separator className="my-3" />
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between mb-3">
                         <div>
                           <p className="text-xs text-muted-foreground">Code Quality Score</p>
                           <p className="text-lg font-bold">{score}/100</p>
                         </div>
                         <Progress value={score} className="w-1/2 h-2" />
                       </div>
+                      {safeSuggestionsCount > 0 && (
+                        <>
+                          <Separator className="my-3" />
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex-1">
+                              <p className="text-xs text-muted-foreground mb-1">
+                                {appliedCount} of {safeSuggestionsCount} safe suggestions applied
+                              </p>
+                              <Progress value={(appliedCount / safeSuggestionsCount) * 100} className="h-1.5" />
+                            </div>
+                            <Button
+                              onClick={handleRefactorAll}
+                              disabled={isApplyingAll || appliedCount === safeSuggestionsCount}
+                              size="sm"
+                              className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white"
+                            >
+                              {isApplyingAll ? (
+                                <><Loader2 className="w-3 h-3 mr-1.5 animate-spin" />Applying...</>
+                              ) : appliedCount === safeSuggestionsCount ? (
+                                <><Check className="w-3 h-3 mr-1.5" />All Applied</>
+                              ) : (
+                                <><CheckCheck className="w-3 h-3 mr-1.5" />Refactor All</>
+                              )}
+                            </Button>
+                          </div>
+                        </>
+                      )}
                     </CardContent>
                   </Card>
 
@@ -315,6 +400,8 @@ export function SmartRefactor() {
                         const SeverityIcon = getSeverityIcon(suggestion.severity)
                         const TypeIcon = getTypeIcon(suggestion.type)
                         const isExpanded = expandedSuggestion === suggestion.id
+                        const isApplied = appliedSuggestions.has(suggestion.id)
+                        const isSafe = suggestion.severity === 'low' || suggestion.severity === 'medium'
 
                         return (
                           <motion.div
@@ -323,18 +410,28 @@ export function SmartRefactor() {
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                           >
-                            <Card className={cn('border transition-all', isExpanded && 'shadow-md')}>
+                            <Card className={cn(
+                              'glass-surface border-amber-500/20 transition-all',
+                              isExpanded && 'shadow-md',
+                              isApplied && 'border-emerald-500/50 bg-emerald-500/5'
+                            )}>
                               <CardContent className="p-4">
                                 <div className="flex items-start gap-3">
                                   <div className={cn(
                                     'w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 border',
-                                    getSeverityColor(suggestion.severity)
+                                    isApplied ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' : getSeverityColor(suggestion.severity)
                                   )}>
-                                    <SeverityIcon className="w-4 h-4" />
+                                    {isApplied ? <Check className="w-4 h-4" /> : <SeverityIcon className="w-4 h-4" />}
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 mb-1">
+                                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                                       <h4 className="text-sm font-semibold">{suggestion.title}</h4>
+                                      {isApplied && (
+                                        <Badge variant="outline" className="text-[10px] h-5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
+                                          <Check className="w-2.5 h-2.5 mr-1" />
+                                          Applied
+                                        </Badge>
+                                      )}
                                       <Badge variant="outline" className={cn('text-[10px] h-5', getSeverityColor(suggestion.severity))}>
                                         {suggestion.severity}
                                       </Badge>
@@ -347,13 +444,32 @@ export function SmartRefactor() {
                                       {suggestion.description}
                                     </p>
 
-                                    <button
-                                      onClick={() => setExpandedSuggestion(isExpanded ? null : suggestion.id)}
-                                      className="text-xs text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1"
-                                    >
-                                      {isExpanded ? 'Hide code' : 'View code diff'}
-                                      <ArrowRight className={cn('w-3 h-3 transition-transform', isExpanded && 'rotate-90')} />
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        onClick={() => setExpandedSuggestion(isExpanded ? null : suggestion.id)}
+                                        className="text-xs text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1"
+                                      >
+                                        {isExpanded ? 'Hide code' : 'View code diff'}
+                                        <ArrowRight className={cn('w-3 h-3 transition-transform', isExpanded && 'rotate-90')} />
+                                      </button>
+                                      {isSafe && (
+                                        <Button
+                                          onClick={() => handleApplySuggestion(suggestion.id)}
+                                          variant={isApplied ? "outline" : "default"}
+                                          size="sm"
+                                          className={cn(
+                                            "h-6 text-[10px] px-2",
+                                            isApplied && "border-emerald-500/50 text-emerald-600 dark:text-emerald-400"
+                                          )}
+                                        >
+                                          {isApplied ? (
+                                            <><XCircle className="w-2.5 h-2.5 mr-1" />Unapply</>
+                                          ) : (
+                                            <><CheckCircle2 className="w-2.5 h-2.5 mr-1" />Apply</>
+                                          )}
+                                        </Button>
+                                      )}
+                                    </div>
 
                                     <AnimatePresence>
                                       {isExpanded && (
@@ -367,8 +483,8 @@ export function SmartRefactor() {
                                           <div className="mt-3 space-y-2">
                                             <div className="relative">
                                               <div className="absolute left-0 top-0 bottom-0 w-3 bg-red-500/20 rounded-l-md" />
-                                              <pre className="p-3 pl-6 rounded-lg bg-red-500/5 border border-red-500/10 text-xs font-mono overflow-x-auto">
-                                                <code className="text-red-700 dark:text-red-300">{suggestion.code}</code>
+                                              <pre className="p-3 pl-6 rounded-lg bg-red-500/5 border border-red-500/10 text-[11px] font-mono overflow-x-auto leading-relaxed">
+                                                <code className="text-red-700 dark:text-red-300">{addLineNumbers(suggestion.code)}</code>
                                               </pre>
                                             </div>
                                             <div className="flex items-center gap-2">
@@ -380,7 +496,7 @@ export function SmartRefactor() {
                                               <div className="relative">
                                                 <button
                                                   onClick={() => handleCopy(suggestion.suggestion, suggestion.id)}
-                                                  className="absolute top-2 right-2 text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1 bg-background/80 rounded px-1.5 py-0.5"
+                                                  className="absolute top-2 right-2 text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1 bg-background/80 rounded px-1.5 py-0.5 z-10"
                                                 >
                                                   {copied === suggestion.id ? (
                                                     <><Check className="w-3 h-3" />Copied</>
@@ -388,8 +504,8 @@ export function SmartRefactor() {
                                                     <><Copy className="w-3 h-3" />Copy</>
                                                   )}
                                                 </button>
-                                                <pre className="p-3 pl-6 rounded-lg bg-emerald-500/5 border border-emerald-500/10 text-xs font-mono overflow-x-auto">
-                                                  <code className="text-emerald-700 dark:text-emerald-300">{suggestion.suggestion}</code>
+                                                <pre className="p-3 pl-6 rounded-lg bg-emerald-500/5 border border-emerald-500/10 text-[11px] font-mono overflow-x-auto leading-relaxed">
+                                                  <code className="text-emerald-700 dark:text-emerald-300">{addLineNumbers(suggestion.suggestion)}</code>
                                                 </pre>
                                               </div>
                                             </div>

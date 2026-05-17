@@ -1,0 +1,15 @@
+{
+  "name": "aroma-bob-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Bob Shell proxy for AROMA - routes AI inference through IBM Bob Shell",
+  "scripts": {
+    "start": "npx tsx server.ts",
+    "dev": "npx tsx watch server.ts"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "cors": "^2.8.5",
+    "tsx": "^4.19.0"
+  }
+}

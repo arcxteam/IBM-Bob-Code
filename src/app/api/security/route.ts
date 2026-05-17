@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { analyzeWithWatsonx, extractJSON } from '@/lib/watsonx'
+import { callBobProxy } from '@/lib/bob-proxy'
 
 interface SecurityFinding {
   id: string;
@@ -55,10 +56,21 @@ Check for (OWASP Top 10 + common vulnerabilities):
 
 Provide ALL findings you detect. If code is clean, return an empty array [].`
 
-    const raw = await analyzeWithWatsonx(systemPrompt, code, {
-      temperature: 0.05,
-      maxNewTokens: 2000,
-    })
+    let raw: string
+
+    const bobResult = await callBobProxy(
+      `${systemPrompt}\n\n${code}`,
+      { chatMode: "advanced", maxCoins: 3 }
+    )
+
+    if (bobResult.success && bobResult.output) {
+      raw = bobResult.output
+    } else {
+      raw = await analyzeWithWatsonx(systemPrompt, code, {
+        temperature: 0.05,
+        maxNewTokens: 2000,
+      })
+    }
 
     const findings = extractJSON<SecurityFinding[]>(raw)
 

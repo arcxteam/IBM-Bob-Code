@@ -249,14 +249,22 @@ export function SecurityScanner() {
       <div className="relative z-10 max-w-7xl mx-auto px-4 md:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center">
-              <Shield className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center">
+                <Shield className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold">Security Scanner</h1>
+                <p className="text-sm text-muted-foreground">AI-powered vulnerability detection across your codebase</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl font-bold">Security Scanner</h1>
-              <p className="text-sm text-muted-foreground">AI-powered vulnerability detection across your codebase</p>
-            </div>
+            {findingsList.length > 0 && (
+              <Badge variant="outline" className="text-sm px-3 py-1.5 bg-violet-500/10 border-violet-500/30 text-violet-600 dark:text-violet-400 font-semibold">
+                <ShieldAlert className="w-4 h-4 mr-2" />
+                {findingsList.length} {findingsList.length === 1 ? 'Vulnerability' : 'Vulnerabilities'} Found
+              </Badge>
+            )}
           </div>
           <Badge variant="outline" className="text-xs bg-violet-500/5 border-violet-500/20 text-violet-600 dark:text-violet-400">
             <Sparkles className="w-3 h-3 mr-1" />
@@ -267,7 +275,7 @@ export function SecurityScanner() {
         <div className="grid lg:grid-cols-5 gap-6">
           {/* Input */}
           <div className="lg:col-span-2">
-            <Card className="border-border/50 bg-card/60 backdrop-blur-sm sticky top-8">
+            <Card className="glass-surface border-violet-500/20 sticky top-8">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-semibold">Code to Scan</CardTitle>
               </CardHeader>
@@ -308,7 +316,7 @@ export function SecurityScanner() {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                 >
-                  <Card className="border-dashed border-border/50 h-[500px] flex items-center justify-center bg-card/60 backdrop-blur-sm">
+                  <Card className="glass-surface border-dashed border-violet-500/20 h-[500px] flex items-center justify-center">
                     <CardContent className="text-center p-8">
                       <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
                         <Shield className="w-8 h-8 text-muted-foreground/50" />
@@ -329,7 +337,7 @@ export function SecurityScanner() {
                   className="space-y-4"
                 >
                   {/* Security Score & Summary */}
-                  <Card className="border-border/50 bg-card/60 backdrop-blur-sm">
+                  <Card className="glass-surface border-violet-500/20">
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-3">
@@ -374,26 +382,118 @@ export function SecurityScanner() {
                     </CardContent>
                   </Card>
 
-                  {/* Filter Pills */}
-                  <div className="flex flex-wrap gap-2">
-                    {severityFilters.map((sf) => (
-                      <button
-                        key={sf.key}
-                        onClick={() => setFilterSeverity(sf.key)}
-                        className={cn(
-                          'text-xs px-3 py-1.5 rounded-full border transition-all',
-                          filterSeverity === sf.key
-                            ? 'bg-violet-500/10 border-violet-500/30 text-violet-600 dark:text-violet-400 font-semibold'
-                            : 'border-border/40 text-muted-foreground hover:border-border'
+                  {/* Severity Filter Buttons */}
+                  <Card className="glass-surface border-violet-500/20">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Filter by Severity</p>
+                        {filterSeverity !== 'all' && (
+                          <button
+                            onClick={() => setFilterSeverity('all')}
+                            className="text-xs text-violet-600 dark:text-violet-400 hover:underline"
+                          >
+                            Clear filter
+                          </button>
                         )}
-                      >
-                        {sf.label}
-                        {sf.key !== 'all' && (
-                          <span className="ml-1 text-[10px]">({severityCounts[sf.key as keyof typeof severityCounts]})</span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          variant={filterSeverity === 'all' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setFilterSeverity('all')}
+                          className={cn(
+                            'text-xs h-8',
+                            filterSeverity === 'all' && 'bg-violet-600 hover:bg-violet-500'
+                          )}
+                        >
+                          All Findings
+                          <Badge variant="secondary" className="ml-2 text-[10px] h-4 px-1.5">
+                            {findingsList.length}
+                          </Badge>
+                        </Button>
+                        <Button
+                          variant={filterSeverity === 'critical' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setFilterSeverity('critical')}
+                          disabled={severityCounts.critical === 0}
+                          className={cn(
+                            'text-xs h-8',
+                            filterSeverity === 'critical' && 'bg-red-600 hover:bg-red-500 text-white'
+                          )}
+                        >
+                          <ShieldAlert className="w-3 h-3 mr-1.5" />
+                          Critical
+                          <Badge variant="secondary" className="ml-2 text-[10px] h-4 px-1.5">
+                            {severityCounts.critical}
+                          </Badge>
+                        </Button>
+                        <Button
+                          variant={filterSeverity === 'high' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setFilterSeverity('high')}
+                          disabled={severityCounts.high === 0}
+                          className={cn(
+                            'text-xs h-8',
+                            filterSeverity === 'high' && 'bg-orange-600 hover:bg-orange-500 text-white'
+                          )}
+                        >
+                          <AlertTriangle className="w-3 h-3 mr-1.5" />
+                          High
+                          <Badge variant="secondary" className="ml-2 text-[10px] h-4 px-1.5">
+                            {severityCounts.high}
+                          </Badge>
+                        </Button>
+                        <Button
+                          variant={filterSeverity === 'medium' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setFilterSeverity('medium')}
+                          disabled={severityCounts.medium === 0}
+                          className={cn(
+                            'text-xs h-8',
+                            filterSeverity === 'medium' && 'bg-amber-600 hover:bg-amber-500 text-white'
+                          )}
+                        >
+                          <Bug className="w-3 h-3 mr-1.5" />
+                          Medium
+                          <Badge variant="secondary" className="ml-2 text-[10px] h-4 px-1.5">
+                            {severityCounts.medium}
+                          </Badge>
+                        </Button>
+                        <Button
+                          variant={filterSeverity === 'low' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setFilterSeverity('low')}
+                          disabled={severityCounts.low === 0}
+                          className={cn(
+                            'text-xs h-8',
+                            filterSeverity === 'low' && 'bg-sky-600 hover:bg-sky-500 text-white'
+                          )}
+                        >
+                          <Info className="w-3 h-3 mr-1.5" />
+                          Low
+                          <Badge variant="secondary" className="ml-2 text-[10px] h-4 px-1.5">
+                            {severityCounts.low}
+                          </Badge>
+                        </Button>
+                        <Button
+                          variant={filterSeverity === 'info' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setFilterSeverity('info')}
+                          disabled={severityCounts.info === 0}
+                          className={cn(
+                            'text-xs h-8',
+                            filterSeverity === 'info' && 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                          )}
+                        >
+                          <CheckCircle2 className="w-3 h-3 mr-1.5" />
+                          Info
+                          <Badge variant="secondary" className="ml-2 text-[10px] h-4 px-1.5">
+                            {severityCounts.info}
+                          </Badge>
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
 
                   {/* Findings List */}
                   <ScrollArea className="max-h-[600px]">
@@ -416,7 +516,7 @@ export function SecurityScanner() {
                               initial={{ opacity: 0, y: 10 }}
                               animate={{ opacity: 1, y: 0 }}
                             >
-                              <Card className={cn('border transition-all bg-card/60 backdrop-blur-sm', isExpanded && 'shadow-md')}>
+                              <Card className={cn('glass-surface border-violet-500/20 transition-all', isExpanded && 'shadow-md')}>
                                 <CardContent className="p-4">
                                   <div className="flex items-start gap-3">
                                     <div className={cn(

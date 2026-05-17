@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { callWatsonx, type WatsonxMessage } from '@/lib/watsonx'
+import { callBobProxy } from '@/lib/bob-proxy'
 
 export async function POST(req: NextRequest) {
   try {
@@ -37,10 +38,18 @@ Focus on practical insights that help developers understand the codebase.`
 
     messages.push({ role: 'user', content: message })
 
-    const response = await callWatsonx(messages, {
-      temperature: 0.3,
-      maxNewTokens: 1500,
-    })
+    const bobPrompt = `${systemPrompt}\n\n${codeContext ? `Code context:\n\`\`\`\n${codeContext.slice(0, 4000)}\n\`\`\`\n\n` : ''}${message}`
+    const bobResult = await callBobProxy(bobPrompt, { chatMode: "advanced", maxCoins: 3 })
+
+    let response: string
+    if (bobResult.success && bobResult.output) {
+      response = bobResult.output
+    } else {
+      response = await callWatsonx(messages, {
+        temperature: 0.3,
+        maxNewTokens: 1500,
+      })
+    }
 
     return NextResponse.json({ response })
   } catch (error) {

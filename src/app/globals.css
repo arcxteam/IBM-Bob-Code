@@ -76,6 +76,77 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* ─────────────────────────────────────────────────────────
+     LIQUID GLASS — Design Tokens
+     ───────────────────────────────────────────────────────── */
+  
+  /* BLUR INTENSITY */
+  --glass-blur-sm-raw: 8px;
+  --glass-blur-md-raw: 16px;
+  --glass-blur-lg-raw: 28px;
+  --glass-blur-xl-raw: 48px;
+
+  --glass-blur-sm: blur(8px);
+  --glass-blur-md: blur(16px);
+  --glass-blur-lg: blur(28px);
+  --glass-blur-xl: blur(48px);
+
+  /* GLASS BACKGROUND FILL (Light Mode) */
+  --glass-bg:                rgba(255, 255, 255, 0.14);
+  --glass-bg-hover:          rgba(255, 255, 255, 0.22);
+  --glass-bg-active:         rgba(255, 255, 255, 0.30);
+  --glass-container-bg:      rgba(255, 255, 255, 0.08);
+
+  /* Fallback untuk browser tanpa backdrop-filter support */
+  --glass-fallback-bg:       rgba(240, 240, 245, 0.92);
+  --glass-fallback-border:   rgba(0, 0, 0, 0.10);
+
+  /* GLASS BORDER (Edge Definition) */
+  --glass-border:            rgba(255, 255, 255, 0.35);
+  --glass-border-subtle:     rgba(255, 255, 255, 0.18);
+  --glass-border-strong:     rgba(255, 255, 255, 0.55);
+
+  /* GLASS SHADOW (Depth) */
+  --glass-shadow-sm:   0 2px 8px rgba(0, 0, 0, 0.08),
+                       0 1px 2px rgba(0, 0, 0, 0.06);
+  --glass-shadow-md:   0 4px 16px rgba(0, 0, 0, 0.10),
+                       0 1px 4px rgba(0, 0, 0, 0.08),
+                       inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  --glass-shadow-lg:   0 8px 32px rgba(0, 0, 0, 0.14),
+                       0 2px 8px rgba(0, 0, 0, 0.10),
+                       inset 0 1px 0 rgba(255, 255, 255, 0.30);
+  --glass-shadow-xl:   0 16px 48px rgba(0, 0, 0, 0.18),
+                       0 4px 16px rgba(0, 0, 0, 0.12),
+                       inset 0 1px 0 rgba(255, 255, 255, 0.35);
+
+  /* CORNER RADIUS */
+  --glass-radius-xs:  8px;
+  --glass-radius-sm:  12px;
+  --glass-radius-md:  16px;
+  --glass-radius-lg:  20px;
+  --glass-radius-xl:  24px;
+  --glass-radius-2xl: 32px;
+  --glass-radius-full: 9999px;
+
+  /* TINTING (IBM Blue Brand Color) */
+  --glass-tint-brand:    rgba(5, 74, 218, 0.18);   /* IBM Blue #054ADA */
+  --glass-tint-brand-prominent: rgba(5, 74, 218, 0.30);
+  --glass-tint-success:  rgba(34, 197, 94, 0.15);
+  --glass-tint-warning:  rgba(234, 179, 8, 0.15);
+  --glass-tint-danger:   rgba(239, 68, 68, 0.15);
+  --glass-tint-neutral:  rgba(148, 163, 184, 0.12);
+
+  /* TRANSITION */
+  --glass-transition-fast:   all 120ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --glass-transition-base:   all 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --glass-transition-slow:   all 350ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --glass-transition-spring: all 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* SATURATION */
+  --glass-saturate: saturate(1.4);
+  --glass-filter-combined-md: blur(16px) saturate(1.4);
+  --glass-filter-combined-lg: blur(28px) saturate(1.6);
 }
 
 .dark {
@@ -110,6 +181,38 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
+  /* LIQUID GLASS — Dark Mode Overrides */
+  --glass-bg:               rgba(20, 20, 30, 0.55);
+  --glass-bg-hover:         rgba(30, 30, 45, 0.65);
+  --glass-bg-active:        rgba(40, 40, 60, 0.72);
+  --glass-container-bg:     rgba(15, 15, 25, 0.40);
+
+  --glass-fallback-bg:      rgba(20, 20, 35, 0.95);
+  --glass-fallback-border:  rgba(255, 255, 255, 0.08);
+
+  --glass-border:           rgba(255, 255, 255, 0.12);
+  --glass-border-subtle:    rgba(255, 255, 255, 0.07);
+  --glass-border-strong:    rgba(255, 255, 255, 0.22);
+
+  --glass-shadow-sm:  0 2px 8px rgba(0, 0, 0, 0.25),
+                      0 1px 2px rgba(0, 0, 0, 0.20);
+  --glass-shadow-md:  0 4px 16px rgba(0, 0, 0, 0.35),
+                      0 1px 4px rgba(0, 0, 0, 0.25),
+                      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --glass-shadow-lg:  0 8px 32px rgba(0, 0, 0, 0.45),
+                      0 2px 8px rgba(0, 0, 0, 0.30),
+                      inset 0 1px 0 rgba(255, 255, 255, 0.10);
+  --glass-shadow-xl:  0 16px 48px rgba(0, 0, 0, 0.55),
+                      0 4px 16px rgba(0, 0, 0, 0.38),
+                      inset 0 1px 0 rgba(255, 255, 255, 0.12);
+
+  --glass-tint-brand:           rgba(78, 130, 255, 0.18);  /* Lighter IBM Blue for dark mode */
+  --glass-tint-brand-prominent: rgba(78, 130, 255, 0.28);
+  --glass-tint-success:         rgba(74, 222, 128, 0.14);
+  --glass-tint-warning:         rgba(250, 204, 21, 0.14);
+  --glass-tint-danger:          rgba(248, 113, 113, 0.14);
+  --glass-tint-neutral:         rgba(100, 116, 139, 0.14);
 }
 
 @layer base {
@@ -120,3 +223,58 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ─────────────────────────────────────────────────────────
+   LIQUID GLASS — Utility Classes
+   ───────────────────────────────────────────────────────── */
+
+/* Surface glass standar — pola paling sering digunakan */
+.glass-surface {
+  background-color: var(--glass-fallback-bg);
+  border: 1px solid var(--glass-fallback-border);
+  border-radius: var(--glass-radius-md);
+  box-shadow: var(--glass-shadow-md);
+  transition: var(--glass-transition-base);
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .glass-surface {
+    background-color: var(--glass-bg);
+    -webkit-backdrop-filter: var(--glass-filter-combined-md);
+    backdrop-filter: var(--glass-filter-combined-md);
+    border-color: var(--glass-border);
+  }
+}
+
+/* Glass surface dengan blur kuat — untuk modal/sheet */
+.glass-surface-lg {
+  background-color: var(--glass-fallback-bg);
+  border: 1px solid var(--glass-fallback-border);
+  border-radius: var(--glass-radius-xl);
+  box-shadow: var(--glass-shadow-lg);
+  transition: var(--glass-transition-base);
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .glass-surface-lg {
+    background-color: var(--glass-bg);
+    -webkit-backdrop-filter: var(--glass-filter-combined-lg);
+    backdrop-filter: var(--glass-filter-combined-lg);
+    border-color: var(--glass-border);
+  }
+}
+
+/* Kontainer grup glass — analog GlassEffectContainer SwiftUI */
+.glass-container {
+  isolation: isolate;
+  background-color: var(--glass-container-bg);
+  border-radius: var(--glass-radius-lg);
+  padding: 6px;
+}
+
+/* Tint overlay */
+.glass-tint-brand     { background-color: var(--glass-tint-brand) !important; }
+.glass-tint-prominent { background-color: var(--glass-tint-brand-prominent) !important; }
+.glass-tint-success   { background-color: var(--glass-tint-success) !important; }
+.glass-tint-warning   { background-color: var(--glass-tint-warning) !important; }
+.glass-tint-danger    { background-color: var(--glass-tint-danger) !important; }

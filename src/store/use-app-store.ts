@@ -8,6 +8,7 @@ export interface AnalysisResult {
   complexity: number
   files: FileAnalysis[]
   suggestions: string[]
+  error?: string
 }
 
 export interface FileAnalysis {

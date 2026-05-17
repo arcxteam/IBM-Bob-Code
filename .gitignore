@@ -68,3 +68,13 @@ next-env.d.ts
 
 # Claude Code config (not for public repo)
 .claude
+bob-proxy/sessions/
+bob-proxy/node_modules/
+bob-proxy/bob-proxy.log
+
+# Bob IDE local data
+.bob/
+
+# Test material
+token-ku-sample.css
+bob-proxy/package-lock.json

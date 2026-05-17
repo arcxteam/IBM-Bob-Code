@@ -281,10 +281,11 @@ flowchart LR
 
 | Technology | Purpose |
 |-----------|---------|
-| **IBM watsonx.ai REST API** | AI inference — IBM Granite 3-8b-instruct foundation model |
+| **IBM watsonx.ai REST API** | AI inference — IBM Granite 4-h-small foundation model |
 | **IBM IAM Token Service** | Bearer token authentication for watsonx.ai API |
+| **IBM Bob Shell Proxy** | Optional proxy routing inference through Bob Shell (demonstrates Bob usage) |
 | **Next.js API Routes** | Server-side endpoints (AI credentials never exposed to client) |
-| **Prisma + SQLite** | Persistence layer for future analysis history (scaffolded) |
+| **Prisma + Supabase PostgreSQL** | Persistence layer for analysis history |
 
 ### Frontend Libraries
 
@@ -326,7 +327,15 @@ Create a `.env.local` file in the project root. All AI calls are made server-sid
 WATSONX_API_KEY=your_ibm_cloud_api_key
 WATSONX_PROJECT_ID=your_watsonx_project_id
 WATSONX_ENDPOINT=https://us-south.ml.cloud.ibm.com
-WATSONX_MODEL_ID=ibm/granite-3-8b-instruct
+WATSONX_MODEL_ID=ibm/granite-4-h-small
+
+# Database — Supabase PostgreSQL
+DATABASE_URL=postgresql://postgres:PASSWORD@db.PROJECT_REF.supabase.co:5432/postgres
+
+# IBM Bob Shell Proxy — optional, routes inference through Bob Shell
+# If set, API routes try Bob Shell first then fallback to direct watsonx.ai
+# Leave empty to use direct watsonx.ai inference only
+BOB_PROXY_URL=
 
 # Optional: override region if your project is not in Dallas
 # WATSONX_ENDPOINT=https://eu-de.ml.cloud.ibm.com
@@ -338,17 +347,17 @@ Refer to the [IBM watsonx.ai Developer Access guide](https://dataplatform.cloud.
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/aroma.git
-cd aroma
+git clone https://github.com/arcxteam/IBM-Bob-Code.git
+cd IBM-Bob-Code
 
 # Install dependencies
 bun install
 
 # Set up environment variables
-cp .env.example .env.local
-# Edit .env.local with your IBM Cloud credentials
+cp .env.example .env
+# Edit .env with your IBM Cloud credentials and Supabase DATABASE_URL
 
-# Set up database (scaffolded for future persistence features)
+# Set up database
 bun run db:push
 
 # Start development server
@@ -356,6 +365,23 @@ bun run dev
 ```
 
 The application will be available at `http://localhost:3000`.
+
+### Running the Bob Shell Proxy (Optional)
+
+The Bob Shell proxy routes AI inference through IBM Bob Shell, demonstrating meaningful Bob usage. It runs as a separate process on your server.
+
+```bash
+# Install proxy dependencies
+cd bob-proxy && npm install && cd ..
+
+# Start proxy with pm2
+pm2 start bob-proxy/ecosystem.config.js
+
+# Or run directly
+cd bob-proxy && npx tsx server.ts
+```
+
+Set `BOB_PROXY_URL=http://localhost:3003` in your `.env` to enable it. If the proxy is down or not configured, all API routes fall back to direct watsonx.ai inference.
 
 ### Scripts
 
@@ -385,7 +411,8 @@ aroma/
 │   │       ├── chat/route.ts       # Interactive flow tracing
 │   │       ├── refactor/route.ts   # Refactoring suggestions
 │   │       ├── generate/route.ts   # Documentation & test generation
-│   │       └── security/route.ts   # Security vulnerability scanning
+│   │       ├── security/route.ts   # Security vulnerability scanning
+│   │       └── health/route.ts     # System health & watsonx.ai check (GET)
 │   ├── components/
 │   │   ├── legacy-code-agent/
 │   │   │   ├── hero-section.tsx    # Landing page (terminal demo, features)
@@ -404,8 +431,14 @@ aroma/
 │   │   └── use-toast.ts            # Toast notifications
 │   └── lib/
 │       ├── watsonx.ts              # IBM watsonx.ai API client & IAM token helper
-│       ├── db.ts                   # Prisma database client
+│       ├── db.ts                   # Prisma database client (Supabase PostgreSQL)
 │       └── utils.ts                # Utilities (cn, etc.)
+├── bob-proxy/                      # Bob Shell proxy server (optional, separate process)
+│   ├── server.ts                   # Express API server
+│   ├── bob-runner.ts               # Bob Shell subprocess runner
+│   ├── ai-router.ts               # AI inference router (Bob → watsonx fallback)
+│   ├── package.json                # Proxy dependencies
+│   └── ecosystem.config.js         # pm2 config
 ├── bob_sessions/                   # ⬅️ REQUIRED: IBM Bob IDE task session reports
 │   ├── README.md                   # Index of all Bob sessions with descriptions
 │   ├── session-001-project-init/
@@ -424,11 +457,10 @@ aroma/
 │       ├── screenshot.png
 │       └── task-history.md
 ├── prisma/
-│   └── schema.prisma               # Database schema (SQLite)
+│   └── schema.prisma               # Database schema (PostgreSQL via Supabase)
 ├── public/                         # Static assets
 ├── .env.example                    # Environment variable template
 ├── .env.local                      # Local credentials (gitignored)
-├── .gitignore                      # Includes .env.local, secrets
 ├── ARCHITECTURE.md                 # Detailed architecture document
 ├── README.md                       # This file
 ├── package.json                    # Dependencies & scripts
@@ -553,7 +585,7 @@ AROMA uses IBM watsonx.ai as the AI inference layer powering all six analysis mo
 
 | Model | Use Case | Reason |
 |-------|----------|--------|
-| `ibm/granite-3-8b-instruct` | All five API routes (default) | Excellent code comprehension, fast inference, cost-efficient within the $80 credit budget |
+| `ibm/granite-4-h-small` | All five API routes (default) | Excellent code comprehension, fast inference, cost-efficient within the $80 credit budget |
 | `ibm/granite-13b-instruct-v2` | Optional fallback for complex analysis | Higher capacity for large codebases; higher token cost |
 
 > The following models are **not used** in AROMA as they are out of scope for this hackathon: `llama-3-405b-instruct`, `mistral-medium-2505`, `mistral-small-3-1-24b-instruct-2503`.
@@ -569,7 +601,7 @@ Authorization: Bearer {IAM_TOKEN}
 Content-Type: application/json
 
 {
-  "model_id": "ibm/granite-3-8b-instruct",
+  "model_id": "ibm/granite-4-h-small",
   "project_id": "{WATSONX_PROJECT_ID}",
   "messages": [...],
   "parameters": {
@@ -693,15 +725,16 @@ Each module features:
 
 | Hackathon Requirement | AROMA Feature | IBM Technology |
 |----------------------|--------------|----------------|
-| "Get up to speed on existing code quickly" | Code Explorer + Flow Tracer | IBM watsonx.ai Granite analysis |
-| "Generate documentation and tests" | Doc & Test Generator | IBM Granite 3-8b-instruct generation |
+| "Get up to speed on existing code quickly" | Code Explorer + Flow Tracer | IBM watsonx.ai Granite 4-h-small analysis |
+| "Generate documentation and tests" | Doc & Test Generator | IBM Granite 4-h-small generation |
 | "Reduce repetitive tasks" | Smart Refactor + Security Scanner | Automated AI pattern detection |
 | "AI as your dev partner" | Built entirely using IBM Bob IDE | Bob IDE sessions documented in `bob_sessions/` |
 
 ### IBM Technology Usage Summary
 
 - ✅ **IBM Bob IDE** — Used as the primary AI development partner throughout the build (evidenced by `bob_sessions/`)
-- ✅ **IBM watsonx.ai** — Powers all five AI analysis API routes via Granite 3-8b-instruct
+- ✅ **IBM Bob Shell** — Runtime inference proxy, each user interaction consumes Bob coins
+- ✅ **IBM watsonx.ai** — Powers all five AI analysis API routes via Granite 4-h-small
 - ✅ **IBM IAM** — Secure token-based authentication for watsonx.ai API
 - ✅ **IBM Granite models** — Code-optimized foundation models for all analysis tasks
 - ✅ Full repository context passed to AI for deep understanding (not isolated snippets)
@@ -746,5 +779,5 @@ This project is built for the **IBM Bob Hackathon 2026**. All rights reserved.
 <p align="center">
   <strong>AROMA</strong> — AI-powered Repository & Object Model Analyzer<br/>
   <em>Built with IBM Bob. Powered by IBM watsonx.ai.</em><br/>
-  <em>Transforming how developers understand and improve legacy code.</em>
+  <em>Temporarily deployed at ibm-bob-code.vercel.app — will self-host after hackathon.</em>
 </p>

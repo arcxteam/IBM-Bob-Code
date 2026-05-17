@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { analyzeWithWatsonx } from '@/lib/watsonx'
+import { callBobProxy } from '@/lib/bob-proxy'
 
 const typePrompts: Record<string, string> = {
   readme: `You are a technical documentation expert. Generate a comprehensive, production-ready README.md for the provided code. Include: project overview, features, installation, usage, API reference (if applicable), architecture, and license section. Use proper markdown formatting with headers, code blocks, and tables where appropriate. Make it professional and complete.`,
@@ -36,10 +37,21 @@ export async function POST(req: NextRequest) {
     const systemPrompt = typePrompts[type] || typePrompts.readme
     const userContent = `Generate ${type} documentation for this code:\n\n${code}`
 
-    const result = await analyzeWithWatsonx(systemPrompt, userContent, {
-      temperature: 0.4,
-      maxNewTokens: 3000,
-    })
+    let result: string
+
+    const bobResult = await callBobProxy(
+      `${systemPrompt}\n\n${userContent}`,
+      { chatMode: "advanced", maxCoins: 3 }
+    )
+
+    if (bobResult.success && bobResult.output) {
+      result = bobResult.output
+    } else {
+      result = await analyzeWithWatsonx(systemPrompt, userContent, {
+        temperature: 0.4,
+        maxNewTokens: 3000,
+      })
+    }
 
     return NextResponse.json({
       title: titles[type] || 'document',
