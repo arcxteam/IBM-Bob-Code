@@ -1,0 +1,43 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model AnalysisSession {
+  id             String    @id @default(cuid())
+  projectName    String    @default("Untitled Project")
+  codeHash       String
+  analysisResult Json
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  scanReports    ScanReport[]
+  documents      GeneratedDocument[]
+}
+
+model ScanReport {
+  id        String   @id @default(cuid())
+  sessionId String
+  scanType  String
+  findings  Json
+  score     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  session   AnalysisSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+model GeneratedDocument {
+  id        String   @id @default(cuid())
+  sessionId String
+  docType   String
+  title     String
+  content   String
+  language  String   @default("markdown")
+  createdAt DateTime @default(now())
+
+  session   AnalysisSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
